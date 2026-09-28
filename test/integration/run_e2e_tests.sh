@@ -66,12 +66,8 @@ echo ""
 echo "Testing secret := reaches the inner read_parquet bind (via delta_share_read)..."
 echo "---------------------------------------------------------"
 
-# CREATE SECRET with no name assigns the delta_sharing type's default name,
-# __default_delta_sharing (confirmed with `SELECT name FROM duckdb_secrets()`
-# against the local CLI). Passing secret := here exercises the full bind
-# path — DeltaSharingSecretRequest, ResolveDeltaSharingSecret, and the
-# WithoutRequestParameters forwarding into the inner read_parquet bind —
-# instead of only the default no-argument resolution the other checks use.
+# An unnamed secret is named __default_delta_sharing; secret := must be
+# stripped before the inner read_parquet bind, which DESCRIBE reaches.
 QUERY_ORDERS_DESC_SECRET="
 LOAD '${EXT_PATH}';
 LOAD httpfs;

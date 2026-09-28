@@ -63,8 +63,8 @@ A session can hold several `delta_sharing` secrets. The table functions
 | both | the named secret | the given endpoint |
 
 When `endpoint` is given, it must equal the chosen secret's `ENDPOINT` or extend
-it with more path segments. Otherwise the call fails, so a secret's bearer token
-is only ever sent under its own `ENDPOINT`.
+it with more path segments (no `.` or `..` segments). Otherwise the call fails,
+so a secret's bearer token is only ever sent under its own `ENDPOINT`.
 
 ```sql
 CREATE SECRET sales (TYPE delta_sharing, ENDPOINT 'https://sharing.example.com/sales',

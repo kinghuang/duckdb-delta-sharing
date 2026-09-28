@@ -221,8 +221,6 @@ DeltaSharingProfile DeltaSharingProfile::FromConfig(ClientContext &context, cons
     auto resolved = ResolveDeltaSharingSecret(context, request);
     const KeyValueSecret *ds_secret = &resolved.Secret();
 
-    // resolved.endpoint can no longer be empty: ResolveDeltaSharingSecret now
-    // throws itself when the chosen secret has no ENDPOINT.
     profile.endpoint = resolved.endpoint;
 
     Value token_value;
