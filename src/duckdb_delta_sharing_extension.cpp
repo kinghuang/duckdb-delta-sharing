@@ -317,9 +317,10 @@ static unique_ptr<FunctionData> ReadDeltaShareBind(
     auto read_parquet = *g_read_parquet_function;
 
     // 2. Fetch URLs dynamically representing the Delta Share logical state
-    DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(context);
+    DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(
+        context, DeltaSharingSecretRequest::FromNamedParameters(input.named_parameters));
     DeltaSharingClient client(profile);
-    
+
     JsonValue predicate_hints;
     string timestamp_str = "";
     if (input.inputs.size() >= 4) {
@@ -382,7 +383,9 @@ static unique_ptr<FunctionData> ReadDeltaShareBind(
     read_parquet.get_multi_file_reader = CreateDeltaShareMultiFileReader;
 
     // 4. Delegate Bind to DuckDB's Native Parquet Scanner!
-    TableFunctionBindInput inner_input(inputs_list, input.named_parameters, input.input_table_types, input.input_table_names, read_parquet.function_info.get(), input.binder, read_parquet, input.ref);
+    // read_parquet rejects options it doesn't know, so endpoint/secret stop here.
+    auto parquet_named_parameters = DeltaSharingSecretRequest::WithoutRequestParameters(input.named_parameters);
+    TableFunctionBindInput inner_input(inputs_list, parquet_named_parameters, input.input_table_types, input.input_table_names, read_parquet.function_info.get(), input.binder, read_parquet, input.ref);
     auto bind_data = read_parquet.bind(context, inner_input, return_types, names);
 
     // Overwrite the returned schema with the LOGICAL schema from Delta Share!
@@ -473,9 +476,10 @@ static unique_ptr<FunctionData> ReadDeltaShareCdfBind(
         }
     }
 
-    DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(context);
+    DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(
+        context, DeltaSharingSecretRequest::FromNamedParameters(input.named_parameters));
     DeltaSharingClient client(profile);
-    
+
     auto query_result = client.QueryTableChanges(share_name, schema_name, table_name, starting_version, ending_version, starting_timestamp, ending_timestamp);
 
     if (query_result.files.empty()) {
@@ -544,8 +548,10 @@ static unique_ptr<FunctionData> ReadDeltaShareCdfBind(
     vector<Value> inputs_list;
     inputs_list.push_back(Value::LIST(LogicalType::VARCHAR, parquet_urls));
 
-    TableFunctionBindInput inner_input(inputs_list, input.named_parameters, input.input_table_types, input.input_table_names, read_parquet.function_info.get(), input.binder, read_parquet, input.ref);
-    
+    // read_parquet rejects options it doesn't know, so endpoint/secret stop here.
+    auto parquet_named_parameters = DeltaSharingSecretRequest::WithoutRequestParameters(input.named_parameters);
+    TableFunctionBindInput inner_input(inputs_list, parquet_named_parameters, input.input_table_types, input.input_table_names, read_parquet.function_info.get(), input.binder, read_parquet, input.ref);
+
     // Do NOT pass modified return_types/names yet to prevent Parquet scanner column mismatch
     auto bind_data = read_parquet.bind(context, inner_input, return_types, names);
 
@@ -818,6 +824,7 @@ static void LoadInternal(DUCKDB_DELTA_SHARING_EXTENSION_LOAD_PARAM) {
     base_read.statistics = nullptr;
     base_read.cardinality = nullptr;
     base_read.named_parameters.erase("schema");
+    DeltaSharingSecretRequest::AddNamedParameters(base_read);
 
     TableFunctionSet delta_share_read("delta_share_read");
     
