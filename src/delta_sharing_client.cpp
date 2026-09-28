@@ -221,9 +221,8 @@ DeltaSharingProfile DeltaSharingProfile::FromConfig(ClientContext &context, cons
     auto resolved = ResolveDeltaSharingSecret(context, request);
     const KeyValueSecret *ds_secret = &resolved.Secret();
 
-    if (resolved.endpoint.empty()) {
-        throw InvalidConfigurationException("LoadProfile error: Please configure Delta Sharing via a secret: CREATE SECRET (TYPE delta_sharing, PROVIDER config, ENDPOINT '...', BEARER_TOKEN '...') or CREATE SECRET (TYPE delta_sharing, PROVIDER env)");
-    }
+    // resolved.endpoint can no longer be empty: ResolveDeltaSharingSecret now
+    // throws itself when the chosen secret has no ENDPOINT.
     profile.endpoint = resolved.endpoint;
 
     Value token_value;

@@ -30,8 +30,4 @@ struct ResolvedDeltaSharingSecret {
 
 ResolvedDeltaSharingSecret ResolveDeltaSharingSecret(ClientContext &context, const DeltaSharingSecretRequest &request);
 
-// Whether `requested` is `secret_endpoint` or extends it at a '/' boundary,
-// ignoring trailing slashes on both.
-bool EndpointCovers(const string &secret_endpoint, const string &requested);
-
 } // namespace duckdb

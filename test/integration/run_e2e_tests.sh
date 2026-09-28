@@ -62,6 +62,38 @@ if ! echo "$ORDERS_DESC" | grep -q "order_payment_method"; then
     exit 1
 fi
 
+echo ""
+echo "Testing secret := reaches the inner read_parquet bind (via delta_share_read)..."
+echo "---------------------------------------------------------"
+
+# CREATE SECRET with no name assigns the delta_sharing type's default name,
+# __default_delta_sharing (confirmed with `SELECT name FROM duckdb_secrets()`
+# against the local CLI). Passing secret := here exercises the full bind
+# path — DeltaSharingSecretRequest, ResolveDeltaSharingSecret, and the
+# WithoutRequestParameters forwarding into the inner read_parquet bind —
+# instead of only the default no-argument resolution the other checks use.
+QUERY_ORDERS_DESC_SECRET="
+LOAD '${EXT_PATH}';
+LOAD httpfs;
+CREATE SECRET (TYPE delta_sharing, PROVIDER config, ENDPOINT '${DB_ENDPOINT}', BEARER_TOKEN '${DB_TOKEN}');
+
+DESCRIBE SELECT * FROM delta_share_read('${SHARE}', '${SCHEMA}', 'orders', secret := '__default_delta_sharing');
+"
+
+echo "Describing orders table via secret := to verify schema mapping..."
+ORDERS_DESC_SECRET=$($DUCKDB_PATH -unsigned -c "$QUERY_ORDERS_DESC_SECRET")
+echo "$ORDERS_DESC_SECRET"
+
+if echo "$ORDERS_DESC_SECRET" | grep -q "col-"; then
+    echo "ERROR: Found physical column names in logical schema via secret :=! Column mapping failed."
+    exit 1
+fi
+
+if ! echo "$ORDERS_DESC_SECRET" | grep -q "order_payment_method"; then
+    echo "ERROR: Missing added logical column 'order_payment_method' via secret :=! Column mapping failed."
+    exit 1
+fi
+
 QUERY_ORDERS="
 LOAD '${EXT_PATH}';
 LOAD httpfs;

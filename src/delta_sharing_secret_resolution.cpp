@@ -36,13 +36,9 @@ DeltaSharingSecretRequest DeltaSharingSecretRequest::FromNamedParameters(const n
 }
 
 named_parameter_map_t DeltaSharingSecretRequest::WithoutRequestParameters(const named_parameter_map_t &named_parameters) {
-    named_parameter_map_t result;
-    for (auto &parameter : named_parameters) {
-        if (!StringUtil::CIEquals(parameter.first, ENDPOINT_PARAMETER) &&
-            !StringUtil::CIEquals(parameter.first, SECRET_PARAMETER)) {
-            result.emplace(parameter.first, parameter.second);
-        }
-    }
+    auto result = named_parameters;
+    result.erase(ENDPOINT_PARAMETER);
+    result.erase(SECRET_PARAMETER);
     return result;
 }
 
@@ -56,13 +52,68 @@ static string WithoutTrailingSlashes(const string &url) {
     return end == string::npos ? string() : url.substr(0, end + 1);
 }
 
-bool EndpointCovers(const string &secret_endpoint, const string &requested) {
-    auto base = WithoutTrailingSlashes(secret_endpoint);
-    auto target = WithoutTrailingSlashes(requested);
-    if (base.empty()) {
+// Whether `base` has a scheme and a non-empty host, e.g. `https://host`.
+//
+// Why: `ENDPOINT 'https://'` trims (via WithoutTrailingSlashes) to `https:`,
+// and `base + "/"` would then equal `https:/`, a prefix of every https URL.
+// Require at least one character after `://` so a scheme-only ENDPOINT can
+// never cover anything.
+static bool HasSchemeAndHost(const string &base) {
+    auto scheme_end = base.find("://");
+    if (scheme_end == string::npos) {
         return false;
     }
-    return target == base || StringUtil::StartsWith(target, base + "/");
+    auto host_start = scheme_end + 3;
+    return host_start < base.size() && base[host_start] != '/';
+}
+
+// Whether a single path segment is `.` or `..` once lower-cased and
+// %2e-decoded (case-insensitively) to `.`.
+//
+// Why: libcurl strips dot segments per RFC 3986 §5.2.4 unless
+// CURLOPT_PATH_AS_IS is set, so `base/sales/../ops` passes a literal-prefix
+// check for `base/sales` but the request actually goes to `base/ops`. Catch
+// the percent-encoded spellings too (`%2e`, `%2E`, `.%2e`, …), not just the
+// literal dots.
+static bool IsDotSegment(const string &segment) {
+    auto lowered = StringUtil::Lower(segment);
+    string decoded;
+    decoded.reserve(lowered.size());
+    for (idx_t i = 0; i < lowered.size();) {
+        if (i + 3 <= lowered.size() && lowered.compare(i, 3, "%2e") == 0) {
+            decoded += '.';
+            i += 3;
+        } else {
+            decoded += lowered[i];
+            i += 1;
+        }
+    }
+    return decoded == "." || decoded == "..";
+}
+
+// Whether `requested` is `secret_endpoint` or extends it at a '/' boundary,
+// ignoring trailing slashes on both, with no `.`/`..` segment in the
+// extension (see IsDotSegment) and no scheme-only ENDPOINT (see
+// HasSchemeAndHost).
+static bool EndpointCovers(const string &secret_endpoint, const string &requested) {
+    auto base = WithoutTrailingSlashes(secret_endpoint);
+    auto target = WithoutTrailingSlashes(requested);
+    if (base.empty() || !HasSchemeAndHost(base)) {
+        return false;
+    }
+    if (target == base) {
+        return true;
+    }
+    if (!StringUtil::StartsWith(target, base + "/")) {
+        return false;
+    }
+    auto extension = target.substr(base.size() + 1);
+    for (auto &segment : StringUtil::Split(extension, '/')) {
+        if (IsDotSegment(segment)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 const KeyValueSecret &ResolvedDeltaSharingSecret::Secret() const {
@@ -157,6 +208,10 @@ ResolvedDeltaSharingSecret ResolveDeltaSharingSecret(ClientContext &context, con
     }
 
     auto secret_endpoint = SecretEndpoint(resolved.Secret());
+    if (secret_endpoint.empty()) {
+        throw InvalidConfigurationException("delta_sharing: secret '%s' has no ENDPOINT",
+                                            resolved.Secret().GetName());
+    }
     if (request.endpoint.empty()) {
         resolved.endpoint = secret_endpoint;
         return resolved;
