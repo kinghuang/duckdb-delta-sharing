@@ -22,6 +22,7 @@
 #include <unordered_set>
 #include "duckdb/common/types/vector.hpp"
 #include "delta_share_multi_file_reader.hpp"
+#include "delta_sharing_secret_resolution.hpp"
 #include "duckdb/catalog/catalog_entry/table_function_catalog_entry.hpp"
 #if defined(__has_include)
 #if __has_include("duckdb/common/multi_file/multi_file_function.hpp")
@@ -71,7 +72,8 @@ static unique_ptr<FunctionData> ListBind(
     auto result = make_uniq<ListBindData>();
 
     try {
-        DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(context);
+        DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(
+            context, DeltaSharingSecretRequest::FromNamedParameters(input.named_parameters));
         DeltaSharingClient client(profile);
 
         // Argument arity determines which function is called
@@ -157,7 +159,8 @@ static unique_ptr<FunctionData> AllTablesBind(
     auto result = make_uniq<ListBindData>();
 
     try {
-        DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(context);
+        DeltaSharingProfile profile = DeltaSharingProfile::FromConfig(
+            context, DeltaSharingSecretRequest::FromNamedParameters(input.named_parameters));
         DeltaSharingClient client(profile);
 
         result->list_type = 2;
@@ -795,9 +798,11 @@ static void LoadInternal(DUCKDB_DELTA_SHARING_EXTENSION_LOAD_PARAM) {
     // Delta Sharing Functions
     TableFunction list("delta_share_list", {}, ListFunction, ListBind);
     list.varargs = LogicalType::VARCHAR;
+    DeltaSharingSecretRequest::AddNamedParameters(list);
     DUCKDB_REGISTER_FUNCTION(db, list);
 
     TableFunction all_tables("delta_share_list_all_tables", {LogicalType::VARCHAR}, ListFunction, AllTablesBind);
+    DeltaSharingSecretRequest::AddNamedParameters(all_tables);
     DUCKDB_REGISTER_FUNCTION(db, all_tables);
 
     // Register our read_parquet overlay!

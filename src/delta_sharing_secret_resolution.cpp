@@ -135,9 +135,6 @@ static unique_ptr<SecretEntry> ResolveByEndpoint(SecretManager &manager, Catalog
     return std::move(match.secret_entry);
 }
 
-// KeyValueSecret::TryGetValue(key, error_on_missing) returns a Value directly
-// (not a bool + out-param); error_on_missing=false means missing keys come
-// back as a null Value rather than throwing.
 static string SecretEndpoint(const KeyValueSecret &secret) {
     auto value = secret.TryGetValue("endpoint", false);
     if (value.IsNull()) {
