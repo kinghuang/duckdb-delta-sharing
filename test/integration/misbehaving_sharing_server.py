@@ -38,6 +38,10 @@ lock = threading.Lock()
 
 
 class MisbehavingServer(BaseHTTPRequestHandler):
+    # keep-alive, so a client that loops reuses one connection instead of
+    # running the machine out of ports
+    protocol_version = "HTTP/1.1"
+
     def _send(self, body, content_type, headers=()):
         data = body.encode()
         self.send_response(200)

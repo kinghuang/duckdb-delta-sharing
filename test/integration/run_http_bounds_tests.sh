@@ -44,7 +44,7 @@ if [ -z "$PORT" ]; then
 fi
 
 answered() {
-    curl -s "http://127.0.0.1:${PORT}/requests"
+    curl -s --retry 5 --retry-connrefused "http://127.0.0.1:${PORT}/requests"
 }
 
 FAILED=0
