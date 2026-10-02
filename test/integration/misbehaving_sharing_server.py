@@ -70,7 +70,8 @@ class MisbehavingServer(BaseHTTPRequestHandler):
                        "application/x-ndjson", link)
             return
         token = parse_qs(url.query).get("pageToken", [""])[0]
-        body = {"items": [{"name": f"item{answered}"}]}
+        item = {"name": f"item{answered}", "schema": "sc", "share": "s", "id": str(answered)}
+        body = {"items": [item]}
         next_token = NEXT_TOKEN.get(mode, lambda _: "")(token)
         if next_token:
             body["nextPageToken"] = next_token
