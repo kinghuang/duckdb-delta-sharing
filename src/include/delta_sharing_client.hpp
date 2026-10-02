@@ -1,6 +1,7 @@
 #pragma once
 
 #include "duckdb.hpp"
+#include "duckdb/common/http_util.hpp"
 #include "delta_sharing_json.hpp"
 #include <string>
 #include <vector>
@@ -16,6 +17,8 @@ struct DeltaSharingProfile {
     std::string expiration_time; // Optional, ISO 8601 format
     bool query_telemetry_enabled;
     std::string current_query;
+    // httpfs' `http_timeout` (seconds); bounds connecting and stalled transfers the same way httpfs does.
+    uint64_t http_timeout = HTTPParams::DEFAULT_TIMEOUT_SECONDS;
     // Mirrors httpfs' `ca_cert_file` setting so one knob covers both the sharing
     // API calls made here and the data files httpfs fetches.
     std::string ca_cert_file;

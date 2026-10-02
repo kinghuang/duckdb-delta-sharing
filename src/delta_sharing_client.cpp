@@ -190,6 +190,18 @@ void ApplyCertPath(CURL *curl, const std::string &ca_cert_file) {
 #endif
 }
 
+// Same options as duckdb-httpfs' curl client (src/httpfs_curl_client.cpp):
+//   connect          → fails after `http_timeout` seconds
+//   stalled transfer → fails once it moves under 1 KB/s for `http_timeout` seconds
+//   whole transfer   → no limit, so a large response that keeps arriving completes
+void ApplyTimeouts(CURL *curl, uint64_t timeout) {
+    const long seconds = static_cast<long>(timeout);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, seconds);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 0L);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1024L);
+    curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, seconds);
+}
+
 } // namespace
 #endif
 
@@ -281,6 +293,11 @@ DeltaSharingProfile DeltaSharingProfile::FromConfig(ClientContext &context) {
         profile.ca_cert_file = ca_cert_value.ToString();
     }
 
+    Value http_timeout_value;
+    if (context.TryGetCurrentSetting("http_timeout", http_timeout_value) && !http_timeout_value.IsNull()) {
+        profile.http_timeout = http_timeout_value.GetValue<uint64_t>();
+    }
+
     profile.current_query = "";
     if (profile.query_telemetry_enabled) {
         // Note: active_query is null during the Bind phase in database/sql, which throws an InternalException.
@@ -309,6 +326,7 @@ DeltaSharingClient::DeltaSharingClient(const DeltaSharingProfile &profile)
         throw InternalException("DeltaSharingClient error: Failed to initialize CURL");
     }
     ApplyCertPath((CURL *)curl_, profile_.ca_cert_file);
+    ApplyTimeouts((CURL *)curl_, profile_.http_timeout);
 #else
     curl_ = nullptr;
 #endif
@@ -503,6 +521,10 @@ HttpResponse DeltaSharingClient::PerformRequest(
             response.error_message += " (certificate file: " +
                                       (cert_path.empty() ? "libcurl built-in default" : cert_path) +
                                       "; override it with the ca_cert_file setting)";
+        }
+        if (res == CURLE_OPERATION_TIMEDOUT) {
+            response.error_message += " (http_timeout: " + std::to_string(profile_.http_timeout) +
+                                      " seconds; raise it with SET http_timeout)";
         }
         response.success = false;
         return response;
