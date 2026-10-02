@@ -8,6 +8,7 @@ so a secret with ENDPOINT 'http://127.0.0.1:<port>/<mode>' selects a mode:
   pages3   listings take three pages, then finish
   link     table queries and change feeds name themselves as the next page
   stall    accepts the request and never answers
+  trickle  answers a listing at about 2 KB/s for about 4 seconds
 GET /requests returns how many requests the server has answered (not counting itself).
 
 Usage: misbehaving_sharing_server.py
@@ -52,6 +53,17 @@ class MisbehavingServer(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _trickle(self, body):
+        data = body.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        for start in range(0, len(data), 512):
+            self.wfile.write(data[start:start + 512])
+            self.wfile.flush()
+            time.sleep(0.25)
+
     def _handle(self):
         global answered
         url = urlsplit(self.path)
@@ -63,6 +75,9 @@ class MisbehavingServer(BaseHTTPRequestHandler):
         mode, _, rest = url.path.lstrip("/").partition("/")
         if mode == "stall":
             time.sleep(600)
+            return
+        if mode == "trickle":
+            self._trickle(json.dumps({"items": [{"name": "s", "id": "1"}]}).ljust(8192))
             return
         if rest.endswith("/query") or rest.endswith("/changes"):
             link = [("Link", f'</{rest}>; rel="next"')] if mode == "link" else []

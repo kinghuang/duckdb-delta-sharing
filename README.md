@@ -150,7 +150,7 @@ Statically linked builds of libcurl look for certificates where the machine that
 This is the same list, order, and `ca_cert_file` precedence that `httpfs` uses, so the sharing API calls made by this extension and the data files fetched by `httpfs` always trust the same store. If certificates live somewhere non-standard (custom images, corporate roots), `SET ca_cert_file` covers both. TLS failures report which certificate file was in use.
 
 ### ⏱️ Timeouts and Paging
-Every request uses `httpfs`' `http_timeout` the way `httpfs` does: connecting may take that many seconds, and a response that slows to under 1 KB/s for that long fails. A large response that keeps arriving is never cut off. With `httpfs` not loaded, the timeout is 30 seconds. `SET http_timeout = 0` turns the stall check off and leaves connecting to libcurl's default (300 seconds).
+In native builds, every request uses `httpfs`' `http_timeout` the way `httpfs` does: connecting may take that many seconds, and a response that slows to under 1 KB/s for that long fails. A large response that keeps arriving is never cut off. With `httpfs` not loaded, the timeout is 30 seconds. `SET http_timeout = 0` turns the stall check off and leaves connecting to libcurl's default (300 seconds).
 
 Paged responses (listings, and table queries a server splits across pages) end with an error, never a partial result, when:
 - the server returns a next page it already returned, which would never end, or

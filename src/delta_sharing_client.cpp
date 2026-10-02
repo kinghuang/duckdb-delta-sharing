@@ -566,7 +566,7 @@ HttpResponse DeltaSharingClient::PerformRequest(
                                       (cert_path.empty() ? "libcurl built-in default" : cert_path) +
                                       "; override it with the ca_cert_file setting)";
         }
-        if (res == CURLE_OPERATION_TIMEDOUT) {
+        if (res == CURLE_OPERATION_TIMEDOUT && profile_.http_timeout > 0) {
             response.error_message += " (http_timeout: " + std::to_string(profile_.http_timeout) +
                                       " seconds; raise it with SET http_timeout)";
         }

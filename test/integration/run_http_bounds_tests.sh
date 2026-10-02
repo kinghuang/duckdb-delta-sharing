@@ -107,6 +107,9 @@ run_case "server that stalls after accepting" stall \
     "http_timeout: 2 seconds" 1 6 \
     "SET http_timeout = 2; SELECT count(*) FROM delta_share_list();"
 
+run_case "slow response that keeps arriving" trickle "shares=1" 1 8 \
+    "SET http_timeout = 2; SELECT 'shares=' || count(*) FROM delta_share_list();"
+
 if [ "$FAILED" -ne 0 ]; then
     echo "HTTP limit integration tests FAILED"
     exit 1
