@@ -303,6 +303,23 @@ jobs:
           chmod +x test/integration/run_e2e_bundled_tests.sh
           ./test/integration/run_e2e_bundled_tests.sh
 
+  integration-test-mockserver:
+    name: Integration Test (MockServer)
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Linux Binary
+        uses: actions/download-artifact@v4
+        with:
+          name: duckdb-linux_amd64
+          path: build/release
+      - name: Run MockServer Tests
+        run: |
+          chmod +x build/release/duckdb
+          ./test/integration/run_empty_table_tests.sh
+          ./test/integration/run_http_bounds_tests.sh
+
   release-bundled-binaries:
     name: Upload Bundled Binaries to GitHub Release
     needs: [build-binaries, bundle-macos-universal]

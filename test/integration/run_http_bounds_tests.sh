@@ -11,17 +11,13 @@ echo "========================================================="
 
 cd "$(dirname "$0")/../.."
 
+# `make release` and the bundled binaries both link the extension into DuckDB,
+# so the queries need no LOAD.
 DUCKDB_PATH="./build/release/duckdb"
-EXT_PATH="./build/release/extension/duckdb_delta_sharing/duckdb_delta_sharing.duckdb_extension"
 WATCHDOG=${WATCHDOG:-30}
 
 if [ ! -f "$DUCKDB_PATH" ]; then
     echo "DuckDB executable not found. Please compile the extension first using 'make release'."
-    exit 1
-fi
-
-if [ ! -f "$EXT_PATH" ]; then
-    echo "Extension not found. Please compile the extension first using 'make release'."
     exit 1
 fi
 
@@ -50,7 +46,6 @@ run_case() {
     output=$(perl -e 'alarm shift; exec @ARGV' "$WATCHDOG" \
         "$DUCKDB_PATH" -unsigned -csv -noheader -c "
 LOAD httpfs;
-LOAD '${EXT_PATH}';
 CREATE SECRET (TYPE delta_sharing, PROVIDER config, ENDPOINT 'http://127.0.0.1:${PORT}/${mode}', BEARER_TOKEN 'test');
 ${sql}" 2>&1) || status=$?
     elapsed=$(( $(date +%s) - start ))

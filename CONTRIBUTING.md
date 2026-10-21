@@ -32,10 +32,11 @@ Then, you can run the integration tests:
 ./test/integration/run_e2e_tests.sh
 ```
 
-Some integration tests run against a local [MockServer](https://www.mock-server.com/) container instead of a live server, so they need no credentials. They need Docker, curl, and a `make release` build:
+Some integration tests run against a local [MockServer](https://www.mock-server.com/) container instead of a live server, so they need no credentials. They need Docker, curl, and a `make release` build. CI runs them against the Linux bundled binary:
 
 ```bash
 ./test/integration/run_empty_table_tests.sh
+./test/integration/run_http_bounds_tests.sh
 ```
 
 ## Code Formatting

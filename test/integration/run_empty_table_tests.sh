@@ -12,17 +12,13 @@ echo "========================================================="
 
 cd "$(dirname "$0")/../.."
 
+# `make release` and the bundled binaries both link the extension into DuckDB,
+# so the queries need no LOAD.
 DUCKDB_PATH="./build/release/duckdb"
-EXT_PATH="./build/release/extension/duckdb_delta_sharing/duckdb_delta_sharing.duckdb_extension"
 RUNS=${RUNS:-20}
 
 if [ ! -f "$DUCKDB_PATH" ]; then
     echo "DuckDB executable not found. Please compile the extension first using 'make release'."
-    exit 1
-fi
-
-if [ ! -f "$EXT_PATH" ]; then
-    echo "Extension not found. Please compile the extension first using 'make release'."
     exit 1
 fi
 
@@ -34,7 +30,6 @@ mockserver_start test/integration/empty_table_expectations.json
 PORT=$MOCKSERVER_PORT
 
 SETUP="
-LOAD '${EXT_PATH}';
 CREATE SECRET (TYPE delta_sharing, PROVIDER config, ENDPOINT 'http://127.0.0.1:${PORT}', BEARER_TOKEN 'test');
 "
 
